@@ -53,17 +53,29 @@ $stageLabels = ['locked' => 'Chưa triển khai', 'in_progress' => 'Đang thực
 <div class="tv4-stage-list">
     <?php require __DIR__ . '/billing.php'; ?>
     <?php foreach ($detail['stages'] as $stage): ?>
-        <article class="sol-glass-card tv4-panel" id="customer-stage-<?= (int) $stage['position'] ?>">
-            <div class="tv4-stage-heading">
+        <?php
+            $finished = $stage['status'] === 'approved';
+            $active = $project['status'] === 'in_progress' && $stage['stage'] === $project['current_stage'];
+            $stageTag = $finished ? 'details' : 'article';
+            $headingTag = $finished ? 'summary' : 'div';
+        ?>
+        <<?= $stageTag ?> class="sol-glass-card tv4-panel tv4-stage <?= $active ? 'tv4-stage--active' : ($finished ? 'tv4-stage--finished' : 'tv4-stage--upcoming') ?>" id="customer-stage-<?= (int) $stage['position'] ?>">
+            <<?= $headingTag ?> class="tv4-stage-heading">
                 <span class="tv4-stage-number"><?= (int) $stage['position'] ?></span>
                 <div><h3><?= UI::escape(Workflow::STAGES[$stage['stage']]) ?></h3></div>
                 <?php UI::component('badge', $stageLabels[$stage['status']], ['variant' => $stage['status'] === 'approved' ? 'emerald' : 'amber']); ?>
-            </div>
+                <?php if ($finished): ?><span class="tv4-stage-toggle" aria-hidden="true"></span><?php endif; ?>
+            </<?= $headingTag ?>>
+            <div class="tv4-stage-content">
             <div class="tv4-meta">
                 <span>Dự kiến: <?= UI::escape($stage['planned_start'] ?? 'Chưa xếp lịch') ?> → <?= UI::escape($stage['planned_end'] ?? 'Chưa xếp lịch') ?></span>
                 <span>Bắt đầu thực tế: <?= UI::escape($stage['started_at'] ?? 'Chưa bắt đầu') ?></span>
                 <span>Hoàn thành: <?= UI::escape($stage['completed_at'] ?? 'Chưa hoàn thành') ?></span>
             </div>
-        </article>
+            <?php if ($stage['stage'] === 'survey'): ?>
+                <?php require __DIR__ . '/stage-materials.php'; ?>
+            <?php endif; ?>
+            </div>
+        </<?= $stageTag ?>>
     <?php endforeach; ?>
 </div>

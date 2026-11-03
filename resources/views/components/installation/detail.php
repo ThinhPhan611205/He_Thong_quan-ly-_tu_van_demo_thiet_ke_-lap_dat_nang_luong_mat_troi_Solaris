@@ -99,9 +99,14 @@ foreach ($detail['crew'] as $member) {
 <div class="tv4-detail-grid">
     <div class="tv4-stage-list">
         <?php require __DIR__ . '/billing.php'; ?>
-        <?php foreach ($detail['stages'] as $stage): $active = $editable && $stage['stage'] === $project['current_stage']; ?>
-            <article class="sol-glass-card tv4-panel tv4-stage <?= $active ? 'tv4-stage--active' : '' ?>" id="stage-<?= $stage['id'] ?>">
-                <div class="tv4-stage-heading">
+        <?php foreach ($detail['stages'] as $stage):
+            $active = $editable && $stage['stage'] === $project['current_stage'];
+            $finished = $stage['status'] === 'approved';
+            $stageTag = $finished ? 'details' : 'article';
+            $headingTag = $finished ? 'summary' : 'div';
+        ?>
+            <<?= $stageTag ?> class="sol-glass-card tv4-panel tv4-stage <?= $active ? 'tv4-stage--active' : ($finished ? 'tv4-stage--finished' : 'tv4-stage--upcoming') ?>" id="stage-<?= $stage['id'] ?>">
+                <<?= $headingTag ?> class="tv4-stage-heading">
                     <span class="tv4-stage-number"><?= (int) $stage['position'] ?></span>
                     <div>
                         <h3><?= UI::escape(Workflow::STAGES[$stage['stage']]) ?></h3>
@@ -111,7 +116,14 @@ foreach ($detail['crew'] as $member) {
                         <p><?= UI::escape($stage['planned_start'] ?? 'Chưa xếp lịch') ?> → <?= UI::escape($stage['planned_end'] ?? '—') ?></p>
                     </div>
                     <?php UI::component('badge', UI::label($stage['status']), ['variant' => $stage['status'] === 'approved' ? 'emerald' : 'amber']); ?>
-                </div>
+                    <?php if ($finished): ?><span class="tv4-stage-toggle" aria-hidden="true"></span><?php endif; ?>
+                </<?= $headingTag ?>>
+                <div class="tv4-stage-content">
+                <?php if ($stage['stage'] === 'survey'): ?>
+                    <?php UI::component('button', 'Phát sinh vật tư', ['variant' => 'outline', 'size' => 'sm'], ['data-material-open' => 'tv4-material-dialog', 'aria-haspopup' => 'dialog', 'aria-controls' => 'tv4-material-dialog']); ?>
+                    <?php require __DIR__ . '/material-dialog.php'; ?>
+                    <?php require __DIR__ . '/stage-materials.php'; ?>
+                <?php endif; ?>
                 <?php $stageDocuments = $documentsByStage[$stage['id']] ?? []; ?>
                 <?php if ($stageDocuments): ?>
                     <div class="tv4-stage-docs">
@@ -202,7 +214,8 @@ foreach ($detail['crew'] as $member) {
                         </div>
                     </form>
                 <?php endif; ?>
-            </article>
+                </div>
+            </<?= $stageTag ?>>
         <?php endforeach; ?>
         <section class="sol-glass-card tv4-panel">
             <h3>Hồ sơ & ảnh minh chứng</h3>

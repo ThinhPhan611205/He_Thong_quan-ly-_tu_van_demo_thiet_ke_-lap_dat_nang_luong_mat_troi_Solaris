@@ -25,8 +25,8 @@ final class UseProjectBilling
     public function canAdd(array $project): bool
     {
         return $project['status'] === 'in_progress'
-            && in_array($project['current_stage'], ['design', 'procurement'], true)
-            && (bool) $this->workflow->rows("SELECT id FROM project_stages WHERE project_id=? AND stage='survey' AND status='approved'", [$project['id']])
+            && in_array($project['current_stage'], ['survey', 'design', 'procurement'], true)
+            && ($project['current_stage'] === 'survey' || (bool) $this->workflow->rows("SELECT id FROM project_stages WHERE project_id=? AND stage='survey' AND status='approved'", [$project['id']]))
             && (bool) $this->workflow->rows("SELECT id FROM project_stages WHERE project_id=? AND stage=? AND status IN ('in_progress','revision_required')", [$project['id'], $project['current_stage']]);
     }
 
@@ -68,7 +68,7 @@ final class UseProjectBilling
     public function add(array $project, array $actor, array $data): void
     {
         if (!in_array($actor['role'], ['admin', 'technician'], true) || !$this->canAdd($project)) {
-            throw new RuntimeException('Chỉ bổ sung vật tư sau khảo sát đã duyệt và trước khi gửi duyệt mua sắm.');
+            throw new RuntimeException('Chỉ bổ sung vật tư khi khảo sát, thiết kế hoặc mua sắm đang làm/cần bổ sung.');
         }
         $quantity = filter_var($data['quantity'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 10000]]);
         $reason = trim((string) ($data['material_reason'] ?? ''));

@@ -76,7 +76,7 @@ final class View
         echo '<input type="hidden" name="action" value="' . self::escape($action) . '">';
     }
 
-    public static function pager(array $pager, string $key): void
+    public static function pager(array $pager, string $key, array $changes = []): void
     {
         if ($pager['pages'] <= 1) {
             return;
@@ -85,7 +85,7 @@ final class View
         foreach ([-1 => 'Trước', 1 => 'Sau'] as $delta => $label) {
             $page = $pager['page'] + $delta;
             if ($page >= 1 && $page <= $pager['pages']) {
-                echo '<a class="sol-btn sol-btn--outline sol-btn--sm" href="' . self::escape(self::url([$key => $page])) . '">' . $label . '</a>';
+                echo '<a class="sol-btn sol-btn--outline sol-btn--sm" href="' . self::escape(self::url(array_merge($changes, [$key => $page]))) . '">' . $label . '</a>';
             }
         }
         echo '</nav>';

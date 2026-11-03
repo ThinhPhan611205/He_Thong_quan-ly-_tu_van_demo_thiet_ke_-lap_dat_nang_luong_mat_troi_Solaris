@@ -58,6 +58,8 @@ try {
     $check($code===303,'Đăng nhập quản lý và chuyển hướng');
     [$code,$body]=$http('&project=1'); $token=$csrf($body);
     $check($code===200 && str_contains($body,'Phân công &amp; bắt đầu dự án') && str_contains($body,'tv4-booking'),'Render chi tiết và lịch phân công');
+    $check(str_contains($body,'data-material-open="tv4-material-dialog"') && str_contains($body,'<dialog id="tv4-material-dialog"') && str_contains($body,'Dự án đang chờ phân công.'), 'Dự án mới có nút mở popup và thông báo chờ phân công');
+    $check((bool) preg_match('/installation\.js\?v=\d+/', $body), 'JavaScript có phiên bản để tránh bộ nhớ đệm cũ');
     [$code]=$http('&project=1',['action'=>'assign','csrf'=>$token,'start_date'=>'2026-11-02','end_date'=>'2026-11-20','technicians[0]'=>'4','technicians[1]'=>'5','hours_per_day'=>'4']);
     $check($code===303,'Gửi form phân công nhóm');
     [$code,$body]=$http('&project=1');
@@ -69,6 +71,9 @@ try {
     $check(str_contains($body,'không còn được phân công'),'Chặn truy cập dự án người khác');
     [, $body]=$http('&project=2'); $token=$csrf($body);
     $check(str_contains($body,'Yêu cầu duyệt giai đoạn') && !str_contains($body,'Duyệt &amp; mở bước tiếp theo'),'Đúng thao tác kỹ thuật viên');
+    $surveyEnd = strpos($body, 'id="stage-8"');
+    $popupPosition = strpos($body, '<dialog id="tv4-material-dialog"');
+    $check($popupPosition !== false && $surveyEnd !== false && $popupPosition < $surveyEnd, 'Popup phát sinh nằm trong giai đoạn 1 khi đang khảo sát');
     $http('&project=2',['action'=>'upload','csrf'=>$token,'document_type'=>'stage_photo','document'=>new CURLFile($bad,'image/png','fake.png')]);
     [, $body]=$http('&project=2');
     $check(str_contains($body,'đúng định dạng'),'Từ chối file giả ảnh');
@@ -122,6 +127,8 @@ try {
     $db->exec("UPDATE project_stages SET status='approved' WHERE project_id=2 AND stage IN ('survey','design')");
     $db->exec("UPDATE project_stages SET status='in_progress' WHERE project_id=2 AND stage='procurement'");
     $db->exec("UPDATE projects SET current_stage='procurement' WHERE id=2");
+    [, $body]=$http('&project=2');
+    $check(str_contains($body,'<details class="sol-glass-card tv4-panel tv4-stage tv4-stage--finished" id="customer-stage-1"') && str_contains($body,'tv4-stage--active') && str_contains($body,'tv4-stage--upcoming'), 'Khách hàng thấy accordion bước hoàn tất và phân biệt bước đang làm/chưa làm');
     [, $body]=$http('&project=2&invoice=1');
     $check(str_contains($body,'SOLARIS — HÓA ĐƠN DỰ ÁN') && str_contains($body,'window.print()') && !str_contains($body,'tv4-projects'),'Route hóa đơn trả trang in riêng');
     [, $body]=$http('&document='.$id);
@@ -141,15 +148,22 @@ try {
     $categoryId=(int)$db->lastInsertId();
     $db->exec("INSERT INTO products (category_id,product_code,name,price) VALUES ({$categoryId},'HTTP-BILLING','Vật tư HTTP',150000)");
     $productId=(int)$db->lastInsertId();
+    for ($i=1;$i<=23;$i++) {
+        $db->exec("INSERT INTO products (category_id,product_code,name,price) VALUES ({$categoryId},'HTTP-EXTRA-{$i}','Vật tư bổ sung {$i}',1000)");
+    }
     [, $body]=$http('&project=2');
-    $check(str_contains($body,'Bổ sung vật tư') && str_contains($body,'Vật tư HTTP'),'Admin có form vật tư sau khảo sát');
+    $check(substr_count($body,'data-category="'.$categoryId.'"')===24 && str_contains($body,'data-material-search') && str_contains($body,'data-material-category') && !str_contains($body,'product_page='), 'Popup tải toàn bộ hơn 20 vật tư, có tìm tên/lọc loại và không phân trang lựa chọn');
+    $check(str_contains($body,'Phát sinh vật tư') && str_contains($body,'<dialog id="tv4-material-dialog"') && str_contains($body,'Vật tư HTTP'),'Admin có nút và popup vật tư ở giai đoạn 1');
+    $check(str_contains($body,'<details class="sol-glass-card tv4-panel tv4-stage tv4-stage--finished" id="stage-7"') && str_contains($body,'<summary class="tv4-stage-heading">'), 'Card quy trình hoàn tất dùng accordion cho admin');
     [$code]=$http('&project=2',['action'=>'add_material','csrf'=>$csrf($body),'product_id'=>$productId,'quantity'=>2,'material_reason'=>'Phát sinh HTTP']);
+    [, $popupBody]=$http('&project=2&material_popup=1');
+    $check(str_contains($popupBody,'data-auto-open="1"') && str_contains($popupBody,'Phát sinh HTTP'), 'Mở lại popup với vật tư đã cập nhật');
     [, $body]=$http('&project=2');
     $check($code===303 && str_contains($body,'Phát sinh HTTP') && str_contains($body,'300.000'),'Form vật tư ghi dữ liệu và cập nhật chi phí');
     $http('', ['action'=>'logout','csrf'=>$csrf($body)]);
     [, $body]=$http();
     $http('', ['action'=>'login','csrf'=>$csrf($body),'username'=>'kythuat.an','password'=>'Solaris@2026']);
     [, $body]=$http('&project=2');
-    $check(str_contains($body,'Bổ sung vật tư') && str_contains($body,'In hóa đơn'),'Kỹ thuật viên được gán thấy vật tư và nút in tại mua sắm');
+    $check(str_contains($body,'Phát sinh vật tư') && str_contains($body,'In hóa đơn'),'Kỹ thuật viên được gán thấy vật tư và nút in tại mua sắm');
     echo "Kiểm tra HTTP hoàn thành. Chạy cleanup sau khi kiểm tra trình duyệt.\n";
 } finally { curl_close($curl); unlink($cookies); unlink($png); unlink($bad); unlink($large); }

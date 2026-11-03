@@ -47,11 +47,11 @@ try {
     $customer = ['id' => 4, 'role' => 'customer'];
     $other = ['id' => 5, 'role' => 'customer'];
     $material = ['product_id' => 1, 'quantity' => 2, 'material_reason' => 'Cáp dài hơn sau khảo sát'];
-    $reject(fn () => $w->act($tech, 1, 'add_material', $material), 'Chặn thêm trước khi khảo sát được duyệt');
+    $check($b->canAdd($w->project(1, $tech)), 'Cho phép cập nhật vật tư trong giai đoạn khảo sát');
+    $w->run("UPDATE project_stages SET status='pending_approval' WHERE stage='survey'");
+    $reject(fn () => $w->act($tech, 1, 'add_material', $material), 'Khóa vật tư khi khảo sát đang chờ duyệt');
     $reject(fn () => $b->invoice(1, $admin), 'Chặn in trước bước mua sắm');
-    $w->run("UPDATE project_stages SET status='approved' WHERE stage='survey'");
-    $w->run("UPDATE project_stages SET status='in_progress' WHERE stage='design'");
-    $w->run("UPDATE projects SET current_stage='design' WHERE id=1");
+    $w->run("UPDATE project_stages SET status='in_progress' WHERE stage='survey'");
     $reject(fn () => $w->act($outsider, 1, 'add_material', $material), 'Chặn kỹ thuật viên ngoài dự án');
     $reject(fn () => $w->act($customer, 1, 'add_material', $material), 'Khách hàng không thêm vật tư');
     foreach ([0, -1, '1.5', 10001] as $invalid) {
@@ -74,6 +74,9 @@ try {
     $check($b->summary($p)['remaining'] === 0 && $b->summary($p)['paid'] === 12469134, 'Thanh toán đúng số dư do server tính');
     $reject(fn () => $w->act($customer, 1, 'pay_project', $pay), 'Gửi lặp không ghi thanh toán lần hai');
     $check((int) $w->rows('SELECT COUNT(*) n FROM project_payments')[0]['n'] === 1, 'Chỉ một giao dịch được ghi');
+    $w->run("UPDATE project_stages SET status='approved' WHERE stage='survey'");
+    $w->run("UPDATE project_stages SET status='in_progress' WHERE stage='design'");
+    $w->run("UPDATE projects SET current_stage='design' WHERE id=1");
     $w->act($admin, 1, 'add_material', $material);
     $check($b->summary($p)['remaining'] === 4000000, 'Phát sinh sau thanh toán tạo đúng số dư mới');
     $w->run("UPDATE project_stages SET status='approved' WHERE stage='design'");

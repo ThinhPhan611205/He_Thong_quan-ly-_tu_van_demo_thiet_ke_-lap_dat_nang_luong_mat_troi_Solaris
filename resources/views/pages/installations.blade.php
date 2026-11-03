@@ -23,7 +23,7 @@ if ($admin) {
     ];
 }
 ?>
-<link rel="stylesheet" href="resources/css/installation.css">
+<link rel="stylesheet" href="resources/css/installation.css?v=<?= filemtime(dirname(__DIR__, 2) . '/css/installation.css') ?>">
 <section class="sol-container tv4">
     <div class="tv4-heading">
         <div>
@@ -125,5 +125,5 @@ if ($admin) {
         <?php endif; ?>
     <?php endif; ?>
 </section>
-<script src="resources/js/installation.js" defer>
+<script src="resources/js/installation.js?v=<?= filemtime(dirname(__DIR__, 2) . '/js/installation.js') ?>" defer>
 </script>

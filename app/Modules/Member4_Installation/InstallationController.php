@@ -61,7 +61,7 @@ final class InstallationController
                 } catch (RuntimeException $error) {
                     $_SESSION['installation_flash'] = $error->getMessage();
                 }
-                $this->redirect($id);
+                $this->redirect($id, $action === 'add_material');
             }
             $defaultFilter = $actor['role'] === 'admin' ? 'new' : ($actor['role'] === 'customer' ? 'all' : 'in_progress');
             $view['filter'] = (string) ($_GET['filter'] ?? $defaultFilter);
@@ -71,9 +71,8 @@ final class InstallationController
                 $billing = new \App\Hooks\UseProjectBilling($workflow);
                 $view['detail']['billing'] = $billing->details($view['detail']['project'], (int) ($_GET['material_page'] ?? 1), (int) ($_GET['payment_page'] ?? 1));
                 if ($actor['role'] !== 'customer' && $view['detail']['billing']['canAdd']) {
-                    $productPager = \App\Hooks\UsePaginationState::make((int) $workflow->rows('SELECT COUNT(*) n FROM products WHERE is_active=1')[0]['n'], (int) ($_GET['product_page'] ?? 1));
-                    $view['detail']['billing']['productPager'] = $productPager;
-                    $view['detail']['billing']['products'] = $workflow->rows("SELECT id,name,price FROM products WHERE is_active=1 ORDER BY name,id LIMIT {$productPager['limit']} OFFSET {$productPager['offset']}");
+                    $view['detail']['billing']['products'] = $workflow->rows('SELECT id,name,price,category_id FROM products WHERE is_active=1 ORDER BY name,id');
+                    $view['detail']['billing']['categories'] = $workflow->rows('SELECT c.id,c.name FROM categories c WHERE EXISTS (SELECT 1 FROM products p WHERE p.category_id=c.id AND p.is_active=1) ORDER BY c.name,c.id');
                 }
                 if ($actor['role'] === 'customer') {
                     return $view;
@@ -130,9 +129,9 @@ final class InstallationController
         $this->redirect();
     }
 
-    private function redirect(int $id = 0): void
+    private function redirect(int $id = 0, bool $materialPopup = false): void
     {
-        header('Location: index.php?page=installations' . ($id ? '&project=' . $id : ''), true, 303);
+        header('Location: index.php?page=installations' . ($id ? '&project=' . $id : '') . ($materialPopup ? '&material_popup=1' : ''), true, 303);
         exit;
     }
 

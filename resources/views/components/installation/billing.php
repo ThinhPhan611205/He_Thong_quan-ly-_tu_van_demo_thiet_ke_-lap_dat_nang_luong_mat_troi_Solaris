@@ -43,25 +43,6 @@ $formatMoney = static fn (int $cents): string => number_format($cents / 100, $ce
         </article>
     <?php endforeach; ?>
     <?php UI::pager($billing['pager'], 'material_page'); ?>
-    <?php if (!$isCustomer && $billing['canAdd']): ?>
-        <?php if (!$billing['products']): ?><p class="tv4-notice">Danh mục chưa có vật tư đang kinh doanh. Cần thêm sản phẩm vào danh mục trước khi chọn vật tư phát sinh.</p><?php endif; ?>
-        <form method="post">
-            <?php UI::form('add_material'); ?>
-            <label>Vật tư
-                <select name="product_id" required>
-                    <option value="">Chọn vật tư</option>
-                    <?php foreach ($billing['products'] as $product): ?>
-                        <option value="<?= (int) $product['id'] ?>"><?= UI::escape($product['name']) ?> — <?= number_format((float) $product['price'], 0, ',', '.') ?> đ</option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <?php UI::pager($billing['productPager'], 'product_page'); ?>
-            <label>Số lượng <?php UI::component('input', '', ['type' => 'number'], ['name' => 'quantity', 'min' => 1, 'max' => 10000, 'value' => 1, 'required' => true]); ?></label>
-            <label>Lý do phát sinh<textarea name="material_reason" maxlength="5000" required></textarea></label>
-            <p class="tv4-muted">Đơn giá lấy từ danh mục tại thời điểm thêm. Chi phí phát sinh được cộng riêng vào giá trị dự án. Đây là dự toán, chưa xuất kho.</p>
-            <?php UI::component('button', 'Bổ sung vật tư', ['type' => 'submit']); ?>
-        </form>
-    <?php endif; ?>
     <h4>Lịch sử thanh toán mô phỏng</h4>
     <?php if (!$billing['payments']): ?><p class="tv4-muted">Chưa có thanh toán.</p><?php endif; ?>
     <?php foreach ($billing['payments'] as $payment): ?>
