@@ -206,11 +206,17 @@ final class UseInstallationWorkflow
             [$project['id'], $project['current_stage'], $to, $actor['id'], $action, $from, $to, $note]);
     }
 
+    public function recordEvent(array $project, array $actor, string $action, string $note): void
+    {
+        $this->log($project, $actor, $action, null, null, $note);
+    }
+
     // Một lần gửi form tương ứng với một nhánh xử lý bên dưới.
     public function act(array $actor, int $id, string $action, array $data, array $files = []): void
     {
-        if (!in_array($actor['role'], ['admin', 'technician'], true)) {
-            throw new RuntimeException('Khách hàng chỉ có quyền xem tiến độ dự án.');
+        if (!in_array($actor['role'], ['admin', 'technician'], true)
+            && !($actor['role'] === 'customer' && $action === 'pay_project')) {
+            throw new RuntimeException('Bạn không có quyền thực hiện thao tác này.');
         }
         $stored = null;
         $this->db->beginTransaction();
@@ -218,6 +224,11 @@ final class UseInstallationWorkflow
         try {
             // Khóa dự án trong lúc ghi để tránh hai người duyệt cùng một lúc.
             $project = $this->project($id, $actor, true);
+            if ($action === 'pay_project') {
+                (new UseProjectBilling($this))->pay($project, $actor, $data);
+                $this->db->commit();
+                return;
+            }
             if ($project['status'] === 'completed' || $project['status'] === 'cancelled') {
                 throw new RuntimeException('Dự án đã kết thúc, không thể thay đổi.');
             }
@@ -232,6 +243,9 @@ final class UseInstallationWorkflow
             }
 
             switch ($action) {
+                case 'add_material':
+                    (new UseProjectBilling($this))->add($project, $actor, $data);
+                    break;
                 case 'assign':
                     $this->admin($actor);
                     $this->assign($project, $actor, $data);

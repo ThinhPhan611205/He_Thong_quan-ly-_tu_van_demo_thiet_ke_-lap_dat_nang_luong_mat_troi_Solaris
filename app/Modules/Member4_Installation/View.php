@@ -13,7 +13,7 @@ final class View
 
     public static function url(array $changes = []): string
     {
-        $allowed = array_intersect_key($_GET, array_flip(['project', 'filter', 'p', 'from', 'to', 'staff_page', 'log_page', 'doc_page', 'request_page']));
+        $allowed = array_intersect_key($_GET, array_flip(['project', 'filter', 'p', 'from', 'to', 'staff_page', 'log_page', 'doc_page', 'request_page', 'material_page', 'payment_page', 'product_page']));
         return 'index.php?' . http_build_query(array_merge(['page' => 'installations'], $allowed, $changes));
     }
 
@@ -107,7 +107,8 @@ final class View
             'reject_stage' => 'Yêu cầu bổ sung', 'postpone_requested' => 'Đề nghị hoãn lịch',
             'replacement_requested' => 'Đề nghị thay nhân viên', 'request_approved' => 'Duyệt yêu cầu',
             'request_rejected' => 'Từ chối yêu cầu', 'request_superseded' => 'Đóng yêu cầu',
-            'project_completed' => 'Hoàn tất dự án'][$action] ?? $action;
+            'project_completed' => 'Hoàn tất dự án', 'material_added' => 'Bổ sung vật tư sau khảo sát',
+            'payment_simulated' => 'Thanh toán mô phỏng'][$action] ?? $action;
     }
 
     public static function documentLabel(string $type): string

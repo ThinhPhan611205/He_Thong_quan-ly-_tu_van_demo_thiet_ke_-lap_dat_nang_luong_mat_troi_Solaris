@@ -9,6 +9,7 @@ if ($mode === 'setup') {
     $name = 'solaris_tv4_http_' . bin2hex(random_bytes(6));
     $schema = file_get_contents(dirname(__DIR__) . '/database/tv4-installation.sql');
     $db->exec(str_replace(['CREATE DATABASE IF NOT EXISTS solaris ', 'USE solaris;'], ["CREATE DATABASE IF NOT EXISTS {$name} ", "USE {$name};"], $schema));
+    $db->exec(file_get_contents(dirname(__DIR__) . '/database/tv4-billing.sql'));
     $db->exec(str_replace('USE solaris;', "USE {$name};", file_get_contents(dirname(__DIR__) . '/database/tv4-demo.sql')));
     file_put_contents($state,$name);
     echo $name;
@@ -104,9 +105,25 @@ try {
     foreach (['assign','upload','submit_stage','approve_stage','reject_stage','postpone','replacement','approve_request','reject_request'] as $action) {
         $http('&project=2',['action'=>$action,'csrf'=>$token]);
         [, $body]=$http('&project=2');
-        $check(str_contains($body,'chỉ có quyền xem'),'Máy chủ từ chối POST khách hàng: '.$action);
+        $check(str_contains($body,'không có quyền thực hiện'),'Máy chủ từ chối POST khách hàng: '.$action);
     }
     $check($db->query('SELECT status FROM project_stages WHERE id=7')->fetchColumn()===$before,'POST giả không đổi trạng thái giai đoạn');
+    $remaining = (string) (int) round((float) $db->query('SELECT total_amount FROM projects WHERE id=2')->fetchColumn() * 100);
+    $payment = ['action'=>'pay_project','csrf'=>$token,'expected_remaining'=>$remaining,'confirm_simulation'=>'1'];
+    $http('&project=2',array_merge($payment,['csrf'=>'wrong']));
+    $check((int)$db->query('SELECT COUNT(*) FROM project_payments')->fetchColumn()===0,'CSRF sai không ghi thanh toán');
+    [$code]=$http('&project=2',$payment);
+    [, $body]=$http('&project=2');
+    $check($code===303 && str_contains($body,'Thanh toán mô phỏng thành công') && str_contains($body,'Đã thanh toán đủ'),'Thanh toán mô phỏng qua form khách hàng');
+    $http('&project=2',$payment);
+    $check((int)$db->query('SELECT COUNT(*) FROM project_payments')->fetchColumn()===1,'Gửi form thanh toán lặp không ghi trùng');
+    [, $body]=$http('&project=2&invoice=1');
+    $check(str_contains($body,'Chỉ in hóa đơn từ bước'),'Route in chặn trước mua sắm');
+    $db->exec("UPDATE project_stages SET status='approved' WHERE project_id=2 AND stage IN ('survey','design')");
+    $db->exec("UPDATE project_stages SET status='in_progress' WHERE project_id=2 AND stage='procurement'");
+    $db->exec("UPDATE projects SET current_stage='procurement' WHERE id=2");
+    [, $body]=$http('&project=2&invoice=1');
+    $check(str_contains($body,'SOLARIS — HÓA ĐƠN DỰ ÁN') && str_contains($body,'window.print()') && !str_contains($body,'tv4-projects'),'Route hóa đơn trả trang in riêng');
     [, $body]=$http('&document='.$id);
     $check(str_contains($body,'khu vực xử lý nội bộ'),'Khách hàng không tải hồ sơ nội bộ bằng URL trực tiếp');
     $db->exec("INSERT INTO projects (contract_code,user_id,project_name,capacity_kwp,total_amount,installation_address) VALUES ('PRIVATE-OTHER',1,'Du an rieng',5,50000000,'Dia chi rieng')");
@@ -115,5 +132,24 @@ try {
     $check(!str_contains($body,'PRIVATE-OTHER'),'Danh sách khách hàng không lộ dự án chủ sở hữu khác');
     [, $body]=$http('&project='.$otherId);
     $check(str_contains($body,'không có quyền xem') && !str_contains($body,'Dia chi rieng'),'Chặn IDOR qua URL chi tiết khách hàng');
+    [, $body]=$http('&project='.$otherId.'&invoice=1');
+    $check(!str_contains($body,'SOLARIS — HÓA ĐƠN DỰ ÁN') && !str_contains($body,'Dia chi rieng'),'Chặn IDOR route hóa đơn');
+    $http('', ['action'=>'logout','csrf'=>$csrf($body)]);
+    [, $body]=$http();
+    $http('', ['action'=>'login','csrf'=>$csrf($body),'username'=>'admin.tv4','password'=>'Solaris@2026']);
+    $db->exec("INSERT INTO categories (name,slug) VALUES ('Test billing','test-billing')");
+    $categoryId=(int)$db->lastInsertId();
+    $db->exec("INSERT INTO products (category_id,product_code,name,price) VALUES ({$categoryId},'HTTP-BILLING','Vật tư HTTP',150000)");
+    $productId=(int)$db->lastInsertId();
+    [, $body]=$http('&project=2');
+    $check(str_contains($body,'Bổ sung vật tư') && str_contains($body,'Vật tư HTTP'),'Admin có form vật tư sau khảo sát');
+    [$code]=$http('&project=2',['action'=>'add_material','csrf'=>$csrf($body),'product_id'=>$productId,'quantity'=>2,'material_reason'=>'Phát sinh HTTP']);
+    [, $body]=$http('&project=2');
+    $check($code===303 && str_contains($body,'Phát sinh HTTP') && str_contains($body,'300.000'),'Form vật tư ghi dữ liệu và cập nhật chi phí');
+    $http('', ['action'=>'logout','csrf'=>$csrf($body)]);
+    [, $body]=$http();
+    $http('', ['action'=>'login','csrf'=>$csrf($body),'username'=>'kythuat.an','password'=>'Solaris@2026']);
+    [, $body]=$http('&project=2');
+    $check(str_contains($body,'Bổ sung vật tư') && str_contains($body,'In hóa đơn'),'Kỹ thuật viên được gán thấy vật tư và nút in tại mua sắm');
     echo "Kiểm tra HTTP hoàn thành. Chạy cleanup sau khi kiểm tra trình duyệt.\n";
 } finally { curl_close($curl); unlink($cookies); unlink($png); unlink($bad); unlink($large); }

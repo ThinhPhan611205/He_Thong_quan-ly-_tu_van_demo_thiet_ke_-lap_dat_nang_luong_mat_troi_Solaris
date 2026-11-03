@@ -98,12 +98,16 @@ foreach ($detail['crew'] as $member) {
 <?php endif; ?>
 <div class="tv4-detail-grid">
     <div class="tv4-stage-list">
+        <?php require __DIR__ . '/billing.php'; ?>
         <?php foreach ($detail['stages'] as $stage): $active = $editable && $stage['stage'] === $project['current_stage']; ?>
             <article class="sol-glass-card tv4-panel tv4-stage <?= $active ? 'tv4-stage--active' : '' ?>" id="stage-<?= $stage['id'] ?>">
                 <div class="tv4-stage-heading">
                     <span class="tv4-stage-number"><?= (int) $stage['position'] ?></span>
                     <div>
                         <h3><?= UI::escape(Workflow::STAGES[$stage['stage']]) ?></h3>
+                        <?php if ($stage['stage'] === 'procurement' && $detail['billing']['canPrint']): ?>
+                            <a class="sol-btn sol-btn--outline sol-btn--sm" target="_blank" rel="noopener" href="index.php?page=installations&amp;project=<?= (int) $project['id'] ?>&amp;invoice=1">In hóa đơn</a>
+                        <?php endif; ?>
                         <p><?= UI::escape($stage['planned_start'] ?? 'Chưa xếp lịch') ?> → <?= UI::escape($stage['planned_end'] ?? '—') ?></p>
                     </div>
                     <?php UI::component('badge', UI::label($stage['status']), ['variant' => $stage['status'] === 'approved' ? 'emerald' : 'amber']); ?>

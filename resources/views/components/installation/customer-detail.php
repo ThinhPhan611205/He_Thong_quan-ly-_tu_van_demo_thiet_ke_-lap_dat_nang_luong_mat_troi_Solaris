@@ -51,6 +51,7 @@ $stageLabels = ['locked' => 'Chưa triển khai', 'in_progress' => 'Đang thực
     <?php endforeach; ?>
 </ol>
 <div class="tv4-stage-list">
+    <?php require __DIR__ . '/billing.php'; ?>
     <?php foreach ($detail['stages'] as $stage): ?>
         <article class="sol-glass-card tv4-panel" id="customer-stage-<?= (int) $stage['position'] ?>">
             <div class="tv4-stage-heading">

@@ -47,10 +47,17 @@ final class InstallationController
                 $this->download($workflow, $actor, (int) $_GET['document']);
             }
             $id = max(0, (int) ($_GET['project'] ?? 0));
+            if (!$post && isset($_GET['invoice'])) {
+                $invoice = (new \App\Hooks\UseProjectBilling($workflow))->invoice($id, $actor);
+                header('Cache-Control: private, no-store');
+                require dirname(__DIR__, 3) . '/resources/views/components/installation/invoice.php';
+                exit;
+            }
             if ($post) {
                 try {
                     $workflow->act($actor, $id, $action, $_POST, $_FILES);
-                    $_SESSION['installation_flash'] = 'Đã lưu thay đổi.';
+                    $_SESSION['installation_flash'] = $action === 'pay_project'
+                        ? 'Thanh toán mô phỏng thành công. Không có giao dịch tiền thật.' : 'Đã lưu thay đổi.';
                 } catch (RuntimeException $error) {
                     $_SESSION['installation_flash'] = $error->getMessage();
                 }
@@ -61,6 +68,13 @@ final class InstallationController
             $view['listing'] = $workflow->listing($actor, $view['filter'], (int) ($_GET['p'] ?? 1));
             if ($id) {
                 $view['detail'] = $workflow->detail($id, $actor, (int) ($_GET['log_page'] ?? 1), (int) ($_GET['request_page'] ?? 1));
+                $billing = new \App\Hooks\UseProjectBilling($workflow);
+                $view['detail']['billing'] = $billing->details($view['detail']['project'], (int) ($_GET['material_page'] ?? 1), (int) ($_GET['payment_page'] ?? 1));
+                if ($actor['role'] !== 'customer' && $view['detail']['billing']['canAdd']) {
+                    $productPager = \App\Hooks\UsePaginationState::make((int) $workflow->rows('SELECT COUNT(*) n FROM products WHERE is_active=1')[0]['n'], (int) ($_GET['product_page'] ?? 1));
+                    $view['detail']['billing']['productPager'] = $productPager;
+                    $view['detail']['billing']['products'] = $workflow->rows("SELECT id,name,price FROM products WHERE is_active=1 ORDER BY name,id LIMIT {$productPager['limit']} OFFSET {$productPager['offset']}");
+                }
                 if ($actor['role'] === 'customer') {
                     return $view;
                 }
